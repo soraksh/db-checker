@@ -24,7 +24,7 @@ Db connection info entity json:
 #GET /dbconnection
 ```
 
-- Get singe db connection info entitiy by name. Returns `EntityNotFoundException` if entity not found.
+- Get single db connection info entity by name. Returns `EntityNotFoundException` if entity not found.
 ```
 #GET /dbconnection/{name}
 ```
@@ -69,3 +69,12 @@ Content-Type: application/json
 #GET /dbmetadata/preview/{name}/{tableName}
 ```
 
+- Get statistics for tables (number of columns and number of rows) from database found by given `name` of db connection info entity.
+```
+#GET /dbmetadata/tablestats/{name}
+```
+
+- Get statistics for columns (mean, median, maximum and minimum values if such aggregation supported by column type) of a table with name `tableName` from database found by given `name` of db connection info entity.
+```
+#GET /dbmetadata/columnstats/{name}/{tableName}
+```
