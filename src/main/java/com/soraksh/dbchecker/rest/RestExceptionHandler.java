@@ -9,20 +9,29 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.persistence.PersistenceException;
+
 @ControllerAdvice
 public class RestExceptionHandler {
 
     @ResponseBody
     @ExceptionHandler(EntityNotFoundException.class)
-    ResponseEntity<ExceptionInfo> employeeNotFoundHandler(EntityNotFoundException e) {
+    ResponseEntity<ExceptionInfo> handleEntityNotFoundException(EntityNotFoundException e) {
         ExceptionInfo info = new ExceptionInfo("EntityNotFoundException", e.getMessage());
         return new ResponseEntity<>(info, HttpStatus.BAD_REQUEST);
     }
 
     @ResponseBody
     @ExceptionHandler(MetadataServiceException.class)
-    ResponseEntity<ExceptionInfo> employeeNotFoundHandler(MetadataServiceException e) {
+    ResponseEntity<ExceptionInfo> handleMetadataServiceException(MetadataServiceException e) {
         ExceptionInfo info = new ExceptionInfo(e.getName(), e.getMessage());
+        return new ResponseEntity<>(info, HttpStatus.BAD_REQUEST);
+    }
+
+    @ResponseBody
+    @ExceptionHandler(PersistenceException.class)
+    ResponseEntity<ExceptionInfo> handlePersistenceException(PersistenceException e) {
+        ExceptionInfo info = new ExceptionInfo(e.getClass().getSimpleName(), e.getMessage());
         return new ResponseEntity<>(info, HttpStatus.BAD_REQUEST);
     }
 }
