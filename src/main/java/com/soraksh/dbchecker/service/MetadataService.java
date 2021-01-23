@@ -18,6 +18,25 @@ public class MetadataService {
 
     public static final String NAME = "MetadataService";
 
+    protected Set<Integer> numericTypes = new HashSet<>() {{
+        add(Types.SMALLINT);
+        add(Types.INTEGER);
+        add(Types.BIGINT);
+        add(Types.REAL);
+        add(Types.DOUBLE);
+        add(Types.NUMERIC);
+    }};
+
+    protected Set<Integer> typesSuitableForMinMax = new HashSet<>() {{
+        add(Types.DATE);
+        add(Types.TIME);
+        add(Types.TIME_WITH_TIMEZONE);
+        add(Types.TIMESTAMP_WITH_TIMEZONE);
+        add(Types.TIMESTAMP);
+        add(Types.VARCHAR);
+        add(Types.CHAR);
+    }};
+
     @Autowired
     protected DbConnectionInfoRepository repository;
 
@@ -174,6 +193,104 @@ public class MetadataService {
                         + " found for database connection "
                         + name);
             }
+        } catch (SQLException e) {
+            throw new MetadataServiceException(e);
+        }
+    }
+
+    public List<Map<String, Object>> getColumnStats(String name, String tableName) {
+        DbConnectionInfo info = repository.findByName(name)
+                .orElseThrow(() -> new EntityNotFoundException("Database connection info", name));
+
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.postgresql.Driver");
+        dataSource.setUrl(getConnectionUrl(info));
+        dataSource.setUsername(info.getUsername());
+        dataSource.setPassword(info.getPassword());
+
+        try {
+            DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
+            ResultSet resultSet = metaData.getTables(null, null, tableName, new String[]{"TABLE"});
+            if (resultSet.next()) {
+                JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+
+                List<Map<String, Object>> result = new ArrayList<>();
+
+                ResultSet columnsResultSet = metaData.getColumns(null, null, tableName, null);
+                while (columnsResultSet.next()) {
+                    Map<String, Object> columnStats = new HashMap<>();
+                    String columnName = columnsResultSet.getString("COLUMN_NAME");
+                    columnStats.put("name", columnName);
+                    int dataType = columnsResultSet.getInt("DATA_TYPE");
+                    if (numericTypes.contains(dataType)) {
+                        columnStats.putAll(
+                                jdbcTemplate.queryForMap(
+                                        "SELECT AVG("
+                                                + columnName
+                                                + ") AS mean, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "
+                                                + columnName
+                                                + ") AS median, MIN("
+                                                + columnName
+                                                + ") AS minimum, MAX("
+                                                + columnName
+                                                + ") AS maximum from "
+                                                + tableName
+                                )
+                        );
+                    } else if (typesSuitableForMinMax.contains(dataType)) {
+                        columnStats.putAll(
+                                jdbcTemplate.queryForMap(
+                                        "SELECT MIN("
+                                                + columnName
+                                                + ") AS minimum, MAX("
+                                                + columnName
+                                                + ") AS maximum from "
+                                                + tableName)
+                        );
+                    }
+                    result.add(columnStats);
+                }
+                return result;
+            } else {
+                throw new MetadataServiceException("No table with name "
+                        + tableName
+                        + " found for database connection "
+                        + name);
+            }
+        } catch (SQLException e) {
+            throw new MetadataServiceException(e);
+        }
+    }
+
+    public List<Map<String, Object>> getTableStats(String name) {
+        DbConnectionInfo info = repository.findByName(name)
+                .orElseThrow(() -> new EntityNotFoundException("Database connection info", name));
+
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.postgresql.Driver");
+        dataSource.setUrl(getConnectionUrl(info));
+        dataSource.setUsername(info.getUsername());
+        dataSource.setPassword(info.getPassword());
+        List<Map<String, Object>> result = new ArrayList<>();
+        try {
+            DatabaseMetaData metaData = dataSource.getConnection().getMetaData();
+            ResultSet resultSet = metaData.getTables(null, null, null, new String[]{"TABLE"});
+            JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+            while (resultSet.next()) {
+                Map<String, Object> tableStats = new HashMap<>();
+                String tableName = resultSet.getString("TABLE_NAME");
+                tableStats.put("name", tableName);
+                ResultSet columnsResultSet = metaData.getColumns(null, null, tableName, null);
+                columnsResultSet.last();
+                tableStats.put("columns", columnsResultSet.getRow());
+                tableStats.put("rows",
+                        jdbcTemplate.queryForObject(
+                                "SELECT COUNT(*) FROM " + tableName,
+                                Integer.class)
+                );
+                result.add(tableStats);
+            }
+            return result;
         } catch (SQLException e) {
             throw new MetadataServiceException(e);
         }

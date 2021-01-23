@@ -36,4 +36,16 @@ public class DbMetadataController {
                                                        @PathVariable String tableName) {
         return metadataService.getDataPreview(name, tableName);
     }
+
+    @GetMapping("/dbmetadata/columnstats/{name}/{tableName}")
+    protected List<Map<String, Object>> getColumnStats(@PathVariable String name,
+                                                            @PathVariable String tableName) {
+        return metadataService.getColumnStats(name, tableName);
+    }
+
+    @GetMapping("/dbmetadata/tablestats/{name}")
+    protected List<Map<String, Object>> getTableStats(@PathVariable String name) {
+        return metadataService.getTableStats(name);
+    }
+
 }
