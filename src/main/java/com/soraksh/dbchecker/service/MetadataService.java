@@ -222,6 +222,7 @@ public class MetadataService {
                     String columnName = columnsResultSet.getString("COLUMN_NAME");
                     columnStats.put("name", columnName);
                     int dataType = columnsResultSet.getInt("DATA_TYPE");
+                    columnStats.put("dataType", JDBCType.valueOf(dataType).getName());
                     if (numericTypes.contains(dataType)) {
                         columnStats.putAll(
                                 jdbcTemplate.queryForMap(
